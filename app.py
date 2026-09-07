@@ -104,9 +104,9 @@ with gr.Blocks(title="Microphone Spike Detector") as demo:
     gr.Markdown("**Microphone Spike Detector — live audio analysis**")
 
     with gr.Row():
-        audio_in = gr.Audio(source="microphone", type="numpy", label="Microphone")
+        audio_in = gr.Audio(source="microphone", type="numpy", label="Microphone (live)", streaming=True)
         with gr.Column():
-            analyze_btn = gr.Button("Analyze")
+            analyze_btn = gr.Button("Analyze latest chunk")
             alert_box = gr.Textbox(label="Alert", interactive=False)
 
     image_out = gr.Image(label="Analysis", type="pil")
@@ -115,14 +115,15 @@ with gr.Blocks(title="Microphone Spike Detector") as demo:
     state = gr.State([])
 
     analyze_btn.click(fn=analyze, inputs=[audio_in, state], outputs=[image_out, alert_box, log_out, state])
-    # Auto-run analysis when the microphone input changes (captures/recording finished)
+    # Process incoming microphone chunks in real time without saving a WAV file.
+    audio_in.stream(fn=analyze, inputs=[audio_in, state], outputs=[image_out, alert_box, log_out, state])
     audio_in.change(fn=analyze, inputs=[audio_in, state], outputs=[image_out, alert_box, log_out, state])
 
     gr.Markdown("""
-    **How it works**: captures a short audio clip from your microphone, computes
-    short-time energy and a spectrogram, and raises a spike alert when energy
-    exceeds a simple statistical threshold. This is a signal-processing demo —
-    it is *not* a robust production detector.
+    **How it works**: listens to the microphone stream, computes short-time
+    energy and a spectrogram on each captured chunk, and raises a spike alert
+    when energy exceeds a simple statistical threshold. This is a signal-processing
+    demo — it is *not* a robust production detector.
     """)
 
 if __name__ == "__main__":

@@ -5,8 +5,9 @@ app_file: app.py
 
 # Microphone Spike Detector
 
-Simple Gradio apps that captures microphone audio, computes short-time energy
-and a spectrogram, and raises spike alerts when the energy exceeds a threshold.
+Simple Gradio app that listens to the microphone in real time, computes
+short-time energy and a spectrogram, and raises spike alerts while audio is
+being captured.
 
 Live demo: (deploy this repository to a Hugging Face Space with `sdk: gradio`)
 
@@ -61,10 +62,10 @@ What it uses
 
 How it works
 
-On each user-captured audio clip the app computes a short-time energy
-envelope and a spectrogram. A spike is raised when the energy peak exceeds
-mean + 2.5 * std. This is a demo — treat it as a teaching example, not a
-production detector.
+As audio is captured from the microphone, the app computes a short-time energy
+envelope and a spectrogram on the live stream. A spike is raised when the energy
+peak exceeds mean + 2.5 * std. This is a demo — treat it as a teaching example,
+not a production detector.
 
 Files of interest
 
