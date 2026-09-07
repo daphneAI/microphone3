@@ -1,35 +1,42 @@
 ---
-sdk: static
+title: Microphone Spike Detector
+emoji: 🎤
+colorFrom: blue
+colorTo: green
+sdk: gradio
+app_file: app.py
+pinned: false
 ---
 
 # Microphone Spike Detector
 
-This Space runs as a browser-only static app. It does not start a Python server, so it stays within the free Hugging Face CPU quota and works with a free account.
+This Space runs a lightweight Gradio app that captures microphone input from the browser, analyzes short-time energy and spectrogram features, and shows a spike alert in the UI.
 
-The app uses the browser microphone API to monitor audio in real time, compute a simple energy spike signal, and show live waveform/energy updates without any server-side processing .
+The app is designed to be easy to run in a free Hugging Face Space while still providing an interactive interface for real-time audio analysis.
 
-## Why this works for free Spaces
+## How it works
 
-- No backend process is running in the Space
-- No model, Python worker, or long-running CPU task is required
-- The microphone and analysis happen in the user browser
-- This avoids the `You've reached your CPU Basic quota limit` problem caused by persistent server-backed apps
+- Capture live microphone input in the browser
+- Compute short-time energy and spectrogram-based signal details
+- Display the waveform, energy trace, and alert status in the UI
+- Log recent spike events for quick review
 
 ## Local preview
 
-Open the generated `index.html` in a browser, or serve the folder locally:
+Run the app locally with:
 
 ```bash
-python -m http.server 8000
+python app.py
 ```
 
-Then visit `http://localhost:8000`.
+Then open the URL shown in the terminal, typically `http://localhost:7860`.
 
 ## Files of interest
 
-- `index.html` — complete browser app with microphone access and live visualization
-- `README.md` — static Space instructions
+- `app.py` — Gradio interface and audio analysis logic
+- `index.html` — static browser-only version for local/demo testing
+- `README.md` — Space metadata and app instructions
 
 ## Notes
 
-This is a lightweight demo intended for free-hosted Spaces. It is not a production-grade acoustic monitoring system and depends on browser permissions for microphone access.
+This is a lightweight demo intended for free-hosted Spaces. It is not a production-grade acoustic monitoring system and depends on browser microphone permissions.
