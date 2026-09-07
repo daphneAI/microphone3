@@ -1,76 +1,35 @@
 ---
-sdk: gradio
-app_file: app.py
---- 
+sdk: static
+---
 
 # Microphone Spike Detector
 
-Simple Gradio app that listens to the microphone in real time, computes
-short-time energy and a spectrogram, and raises spike alerts while audio is
-being captured.
+This Space runs as a browser-only static app. It does not start a Python server, so it stays within the free Hugging Face CPU quota and works with a free account.
 
-Live demo: (deploy this repository to a Hugging Face Space with `sdk: gradio`)
+The app uses the browser microphone API to monitor audio in real time, compute a simple energy spike signal, and show live waveform/energy updates without any server-side processing.
 
-How to run locally
+## Why this works for free Spaces
 
-1. Create a virtual environment and activate it.
-2. Install dependencies:
+- No backend process is running in the Space
+- No model, Python worker, or long-running CPU task is required
+- The microphone and analysis happen in the user browser
+- This avoids the `You've reached your CPU Basic quota limit` problem caused by persistent server-backed apps
 
-```bash
-pip install -r requirements.txt
-```
+## Local preview
 
-3. Run the app:
+Open the generated `index.html` in a browser, or serve the folder locally:
 
 ```bash
-python app.py
+python -m http.server 8000
 ```
 
-Local setup (recommended)
+Then visit `http://localhost:8000`.
 
-This project is tested with Python 3.10. If you have a newer system Python (for
-example 3.13) you may encounter wheel/build errors for packages like `numpy`.
-Follow these steps on Windows to create a Python 3.10 virtual environment and
-run the app: 
+## Files of interest
 
-```powershell
-# Install Python 3.10 from https://www.python.org/downloads/ if you don't have it
-# Create a venv with the 3.10 interpreter (uses the py launcher)
-py -3.10 -m venv .venv
-. .venv\Scripts\Activate.ps1    # PowerShell
-# or use: .venv\Scripts\activate for cmd.exe
-python -m pip install --upgrade pip setuptools wheel
-pip install -r requirements.txt
-python app.py
-```
+- `index.html` — complete browser app with microphone access and live visualization
+- `README.md` — static Space instructions
 
-If you prefer conda you can create a conda env instead:
+## Notes
 
-```powershell
-conda create -n mic-spike python=3.10 -y
-conda activate mic-spike
-pip install -r requirements.txt
-python app.py
-```
-
-
-What it uses
-
-- `gradio` for the web UI
-- `numpy`/`scipy` for signal processing
-- `matplotlib` for visualization
-
-How it works
-
-As audio is captured from the microphone, the app computes a short-time energy
-envelope and a spectrogram on the live stream. A spike is raised when the energy
-peak exceeds mean + 2.5 * std. This is a demo — treat it as a teaching example,
-not a production detector.
-
-Files of interest
-
-- `app.py` — the Gradio application and DSP logic
-- `requirements.txt` — pinned dependencies used to build the Space
-- `.github/workflows/verify-and-deploy.yml` — CI verify + deploy pipeline template
-
-For detailed deployment steps see [DEPLOY.md](DEPLOY.md). The repository uses a GitHub secret named `space3Devices` for CI deployment and the helper script `deploy_to_space.ps1` for quick local pushes.
+This is a lightweight demo intended for free-hosted Spaces. It is not a production-grade acoustic monitoring system and depends on browser permissions for microphone access.
