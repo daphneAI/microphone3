@@ -136,6 +136,24 @@
             font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
         }
 
+        .meter {
+            height: 12px;
+            width: 100%;
+            background: rgba(148, 163, 184, 0.12);
+            border: 1px solid var(--line);
+            border-radius: 999px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+
+        .meter-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #f97316, #22c55e);
+            border-radius: inherit;
+            transition: width 0.06s ease-out;
+        }
+
         @media (max-width: 760px) {
             .grid {
                 grid-template-columns: 1fr;
@@ -160,6 +178,9 @@
             </div>
 
             <div id="status" class="status">Waiting for microphone access.</div>
+            <div class="meter" aria-label="Microphone activity level">
+                <div id="meterFill" class="meter-fill"></div>
+            </div>
 
             <div class="grid">
                 <div>
@@ -183,6 +204,7 @@
         const thresholdRange = document.getElementById('thresholdRange');
         const statusEl = document.getElementById('status');
         const logBox = document.getElementById('logBox');
+        const meterFill = document.getElementById('meterFill');
         const waveCanvas = document.getElementById('waveCanvas');
         const energyCanvas = document.getElementById('energyCanvas');
         const waveCtx = waveCanvas.getContext('2d');
@@ -277,8 +299,12 @@
         }
 
         function renderFrame() {
-            if (!analyser) {
+            if (!analyser || !audioContext) {
                 return;
+            }
+
+            if (audioContext.state === 'suspended') {
+                audioContext.resume().catch(() => { });
             }
 
             const timeBuffer = new Uint8Array(analyser.fftSize);
@@ -296,9 +322,12 @@
             const rms = Math.sqrt(
                 timeBuffer.reduce((acc, value) => acc + (value - 128) ** 2, 0) / timeBuffer.length
             ) / 128;
+            const energyLevel = avgFreq * 1.4 + rms * 0.8;
+
+            meterFill.style.width = `${Math.min(100, Math.max(0, (energyLevel * 100) + 5))}%`;
 
             drawWaveform(timeBuffer);
-            updateEnergy(avgFreq * 1.4 + rms * 0.8);
+            updateEnergy(energyLevel);
 
             if (isActive && (avgFreq + rms > threshold)) {
                 setStatus('Spike detected!', true);
@@ -308,7 +337,11 @@
                     isActive = true;
                 }, 1200);
             } else if (isActive) {
-                setStatus('Listening for spikes...');
+                if (rms < 0.05) {
+                    setStatus('No sound detected', false);
+                } else {
+                    setStatus('Listening for spikes...');
+                }
             }
 
             animationId = requestAnimationFrame(renderFrame);
@@ -321,11 +354,22 @@
             }
 
             try {
-                await listDevices();
-                const deviceId = deviceSelect.value || undefined;
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const audioInputs = devices.filter((d) => d.kind === 'audioinput');
+                const selectedDeviceId = deviceSelect.value || audioInputs[0]?.deviceId || undefined;
+
+                if (audioInputs.length === 0) {
+                    setStatus('No microphone input device found.', true);
+                    return;
+                }
+
+                if (micStream) {
+                    micStream.getTracks().forEach((track) => track.stop());
+                }
+
                 const stream = await navigator.mediaDevices.getUserMedia({
                     audio: {
-                        deviceId: deviceId ? { exact: deviceId } : undefined,
+                        deviceId: selectedDeviceId ? { exact: selectedDeviceId } : undefined,
                         echoCancellation: true,
                         noiseSuppression: true,
                     }
@@ -339,15 +383,50 @@
                 const source = audioContext.createMediaStreamSource(stream);
                 source.connect(analyser);
 
+                if (audioContext.state === 'suspended') {
+                    await audioContext.resume();
+                }
+
                 micStream = stream;
                 isActive = true;
                 setStatus('Listening for spikes...');
-                logEvent('Microphone started successfully.');
+                logEvent(`Microphone started successfully on selected input: ${deviceSelect.options[deviceSelect.selectedIndex]?.text || 'default'}`);
                 renderFrame();
             } catch (err) {
                 console.error(err);
                 setStatus('Microphone access was denied or unavailable.', true);
                 logEvent(`Access error: ${err.message || err}`);
+            }
+        }
+
+        async function switchInputDevice() {
+            if (!micStream || !deviceSelect.value) {
+                return;
+            }
+
+            try {
+                const nextStream = await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                        deviceId: { exact: deviceSelect.value },
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                    }
+                });
+
+                if (micStream) {
+                    micStream.getTracks().forEach((track) => track.stop());
+                }
+
+                micStream = nextStream;
+                const source = audioContext.createMediaStreamSource(nextStream);
+                source.connect(analyser);
+
+                logEvent(`Switched input to: ${deviceSelect.options[deviceSelect.selectedIndex]?.text || 'selected device'}`);
+                setStatus('Listening for spikes...');
+            } catch (err) {
+                console.error(err);
+                setStatus('Unable to switch input device.', true);
+                logEvent(`Input switch error: ${err.message || err}`);
             }
         }
 
@@ -379,6 +458,11 @@
 
         startBtn.addEventListener('click', startMic);
         stopBtn.addEventListener('click', stopMic);
+        deviceSelect.addEventListener('change', () => {
+            if (micStream) {
+                switchInputDevice();
+            }
+        });
         thresholdRange.addEventListener('input', () => {
             logEvent(`Threshold changed to ${Number(thresholdRange.value).toFixed(2)}`);
         });
