@@ -30,7 +30,7 @@ Local setup (recommended)
 This project is tested with Python 3.10. If you have a newer system Python (for
 example 3.13) you may encounter wheel/build errors for packages like `numpy`.
 Follow these steps on Windows to create a Python 3.10 virtual environment and
-run the app:
+run the app: 
 
 ```powershell
 # Install Python 3.10 from https://www.python.org/downloads/ if you don't have it
