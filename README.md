@@ -72,4 +72,4 @@ Files of interest
 - `requirements.txt` — pinned dependencies used to build the Space
 - `.github/workflows/verify-and-deploy.yml` — CI verify + deploy pipeline template
 
-For detailed deployment steps see [DEPLOY.md](DEPLOY.md). The repository uses a GitHub secret named `gitIntegrateWithDevice` for CI deployment and the helper script `deploy_to_space.ps1` for quick local pushes.
+For detailed deployment steps see [DEPLOY.md](DEPLOY.md). The repository uses a GitHub secret named `space3Devices` for CI deployment and the helper script `deploy_to_space.ps1` for quick local pushes.
