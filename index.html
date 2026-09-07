@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Microphone Spike Detector</title>
+    <style>
+        :root {
+            --bg: #0f172a;
+            --panel: #111827;
+            --panel-2: #1f2937;
+            --line: #374151;
+            --text: #e5e7eb;
+            --muted: #94a3b8;
+            --accent: #f97316;
+            --good: #22c55e;
+            --bad: #ef4444;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #020817, var(--bg));
+            color: var(--text);
+        }
+
+        .wrap {
+            max-width: 980px;
+            margin: 0 auto;
+            padding: 32px 20px 48px;
+        }
+
+        .panel {
+            background: rgba(17, 24, 39, 0.92);
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            padding: 18px 18px 14px;
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
+        }
+
+        h1 {
+            margin: 0 0 8px;
+            font-size: clamp(1.8rem, 3vw, 2.6rem);
+        }
+
+        .subtitle {
+            color: var(--muted);
+            margin: 0 0 18px;
+        }
+
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        button,
+        select,
+        input {
+            border-radius: 10px;
+            border: 1px solid var(--line);
+            padding: 10px 12px;
+            background: var(--panel-2);
+            color: var(--text);
+            font-size: 1rem;
+        }
+
+        button {
+            cursor: pointer;
+            background: var(--accent);
+            color: white;
+            border: none;
+            font-weight: 700;
+            min-width: 140px;
+        }
+
+        button.secondary {
+            background: #334155;
+        }
+
+        .status {
+            padding: 12px 14px;
+            border-radius: 12px;
+            background: rgba(148, 163, 184, 0.08);
+            border: 1px solid var(--line);
+            color: var(--muted);
+            font-weight: 600;
+            margin-bottom: 16px;
+        }
+
+        .status.alert {
+            background: rgba(239, 68, 68, 0.08);
+            color: #fecaca;
+            border-color: rgba(239, 68, 68, 0.5);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1.5fr 1fr;
+            gap: 18px;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            background: #020817;
+            border-radius: 12px;
+            border: 1px solid var(--line);
+        }
+
+        .block-label {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--muted);
+            font-size: 0.92rem;
+        }
+
+        .log {
+            margin-top: 18px;
+            min-height: 160px;
+            max-height: 220px;
+            overflow: auto;
+            white-space: pre-wrap;
+            background: rgba(2, 8, 23, 0.8);
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            padding: 12px 14px;
+            color: #dbeafe;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        }
+
+        @media (max-width: 760px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="wrap">
+        <h1>Microphone Spike Detector</h1>
+        <p class="subtitle">Browser-only, static-hosted demo for free Hugging Face Spaces.</p>
+
+        <div class="panel">
+            <div class="controls">
+                <button id="startBtn">Start microphone</button>
+                <button id="stopBtn" class="secondary">Stop</button>
+                <label for="deviceSelect" class="block-label" style="margin:0;">Input:</label>
+                <select id="deviceSelect"></select>
+                <label for="thresholdRange" class="block-label" style="margin:0;">Threshold:</label>
+                <input id="thresholdRange" type="range" min="0.02" max="0.6" step="0.01" value="0.18" />
+            </div>
+
+            <div id="status" class="status">Waiting for microphone access.</div>
+
+            <div class="grid">
+                <div>
+                    <div class="block-label">Waveform</div>
+                    <canvas id="waveCanvas" width="720" height="180"></canvas>
+                </div>
+                <div>
+                    <div class="block-label">Energy</div>
+                    <canvas id="energyCanvas" width="320" height="180"></canvas>
+                </div>
+            </div>
+
+            <div class="log" id="logBox">No detections yet.</div>
+        </div>
+    </div>
+
+    <script>
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const deviceSelect = document.getElementById('deviceSelect');
+        const thresholdRange = document.getElementById('thresholdRange');
+        const statusEl = document.getElementById('status');
+        const logBox = document.getElementById('logBox');
+        const waveCanvas = document.getElementById('waveCanvas');
+        const energyCanvas = document.getElementById('energyCanvas');
+        const waveCtx = waveCanvas.getContext('2d');
+        const energyCtx = energyCanvas.getContext('2d');
+
+        let audioContext = null;
+        let analyser = null;
+        let micStream = null;
+        let animationId = null;
+        let logEntries = [];
+        let isActive = false;
+        const energyHistory = [];
+
+        function logEvent(message) {
+            const stamp = new Date().toLocaleTimeString();
+            logEntries.unshift(`${stamp} - ${message}`);
+            logEntries = logEntries.slice(0, 30);
+            logBox.textContent = logEntries.join('\n');
+        }
+
+        function setStatus(message, isAlert = false) {
+            statusEl.textContent = message;
+            statusEl.classList.toggle('alert', isAlert);
+        }
+
+        async function listDevices() {
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            const audioInputs = devices.filter((d) => d.kind === 'audioinput');
+            deviceSelect.innerHTML = '';
+
+            for (const device of audioInputs) {
+                const option = document.createElement('option');
+                option.value = device.deviceId;
+                option.textContent = device.label || `Microphone ${audioInputs.indexOf(device) + 1}`;
+                deviceSelect.appendChild(option);
+            }
+        }
+
+        function drawWaveform(timeData) {
+            const w = waveCanvas.width;
+            const h = waveCanvas.height;
+            waveCtx.clearRect(0, 0, w, h);
+            waveCtx.fillStyle = '#020817';
+            waveCtx.fillRect(0, 0, w, h);
+            waveCtx.lineWidth = 2;
+            waveCtx.strokeStyle = '#f97316';
+            waveCtx.beginPath();
+
+            for (let i = 0; i < timeData.length; i++) {
+                const x = (i / timeData.length) * w;
+                const value = (timeData[i] - 128) / 128;
+                const y = (value * h) / 2 + h / 2;
+                if (i === 0) {
+                    waveCtx.moveTo(x, y);
+                } else {
+                    waveCtx.lineTo(x, y);
+                }
+            }
+
+            waveCtx.stroke();
+        }
+
+        function drawEnergy(values) {
+            const w = energyCanvas.width;
+            const h = energyCanvas.height;
+            energyCtx.clearRect(0, 0, w, h);
+            energyCtx.fillStyle = '#020817';
+            energyCtx.fillRect(0, 0, w, h);
+
+            const line = values.slice(-w);
+            energyCtx.beginPath();
+            energyCtx.moveTo(0, h);
+            for (let i = 0; i < line.length; i++) {
+                const x = i;
+                const y = h - line[i] * h;
+                energyCtx.lineTo(x, y);
+            }
+            energyCtx.lineTo(w, h);
+            energyCtx.closePath();
+            energyCtx.fillStyle = 'rgba(34, 197, 94, 0.25)';
+            energyCtx.fill();
+            energyCtx.strokeStyle = '#22c55e';
+            energyCtx.stroke();
+        }
+
+        function updateEnergy(avgLevel) {
+            energyHistory.push(avgLevel);
+            if (energyHistory.length > 200) {
+                energyHistory.shift();
+            }
+            drawEnergy(energyHistory.map((v) => Math.max(0, Math.min(1, v))));
+        }
+
+        function renderFrame() {
+            if (!analyser) {
+                return;
+            }
+
+            const timeBuffer = new Uint8Array(analyser.fftSize);
+            analyser.getByteTimeDomainData(timeBuffer);
+            const freqBuffer = new Uint8Array(analyser.frequencyBinCount);
+            analyser.getByteFrequencyData(freqBuffer);
+
+            let sum = 0;
+            for (let i = 0; i < freqBuffer.length; i++) {
+                sum += freqBuffer[i];
+            }
+
+            const avgFreq = sum / freqBuffer.length / 255;
+            const threshold = Number(thresholdRange.value);
+            const rms = Math.sqrt(
+                timeBuffer.reduce((acc, value) => acc + (value - 128) ** 2, 0) / timeBuffer.length
+            ) / 128;
+
+            drawWaveform(timeBuffer);
+            updateEnergy(avgFreq * 1.4 + rms * 0.8);
+
+            if (isActive && (avgFreq + rms > threshold)) {
+                setStatus('Spike detected!', true);
+                logEvent(`Spike detected: energy ${(avgFreq + rms).toFixed(3)} > threshold ${threshold.toFixed(2)}`);
+                isActive = false;
+                setTimeout(() => {
+                    isActive = true;
+                }, 1200);
+            } else if (isActive) {
+                setStatus('Listening for spikes...');
+            }
+
+            animationId = requestAnimationFrame(renderFrame);
+        }
+
+        async function startMic() {
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                setStatus('This browser does not support microphone access.', true);
+                return;
+            }
+
+            try {
+                await listDevices();
+                const deviceId = deviceSelect.value || undefined;
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                        deviceId: deviceId ? { exact: deviceId } : undefined,
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                    }
+                });
+
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = 2048;
+                analyser.smoothingTimeConstant = 0.8;
+
+                const source = audioContext.createMediaStreamSource(stream);
+                source.connect(analyser);
+
+                micStream = stream;
+                isActive = true;
+                setStatus('Listening for spikes...');
+                logEvent('Microphone started successfully.');
+                renderFrame();
+            } catch (err) {
+                console.error(err);
+                setStatus('Microphone access was denied or unavailable.', true);
+                logEvent(`Access error: ${err.message || err}`);
+            }
+        }
+
+        function stopMic() {
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+                animationId = null;
+            }
+
+            if (micStream) {
+                micStream.getTracks().forEach((track) => track.stop());
+                micStream = null;
+            }
+
+            if (audioContext) {
+                audioContext.close();
+                audioContext = null;
+            }
+
+            analyser = null;
+            isActive = false;
+
+            setStatus('Microphone stopped.');
+            logEvent('Microphone stopped.');
+
+            waveCtx.clearRect(0, 0, waveCanvas.width, waveCanvas.height);
+            energyCtx.clearRect(0, 0, energyCanvas.width, energyCanvas.height);
+        }
+
+        startBtn.addEventListener('click', startMic);
+        stopBtn.addEventListener('click', stopMic);
+        thresholdRange.addEventListener('input', () => {
+            logEvent(`Threshold changed to ${Number(thresholdRange.value).toFixed(2)}`);
+        });
+
+        if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
+            listDevices();
+        }
+    </script>
+</body>
+
+</html>
