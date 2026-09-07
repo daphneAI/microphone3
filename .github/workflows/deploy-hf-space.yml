@@ -29,12 +29,11 @@ jobs:
       - uses: actions/checkout@v4
       - name: Deploy to Hugging Face Space
         env:
-          space3Devices: ${{ secrets.HF_TOKEN }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
         
-          SPACE_USER=daphneAI
-          SPACE_NAME=space3Devices
+
           # push to Space using token auth in URL
-          git remote add space "https://daphneAI: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@huggingface.co/spaces/daphneAI/space3Devices" || true
+          git remote add space "https://daphneAI:${HF_TOKEN}@huggingface.co/spaces/daphneAI/space3Devices" || true
           git push --force space HEAD:main
        
