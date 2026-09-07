@@ -35,6 +35,6 @@ jobs:
           SPACE_USER=daphneAI
           SPACE_NAME=space3Devices
           # push to Space using token auth in URL
-          git remote add space "https://daphneAI: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@huggingface.co/spaces/daphneAI/space3Devices" || true
+          git remote add space "https://daphneAI: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@huggingface.co/spaces/daphneAI/space3Devices" || true
           git push --force space HEAD:main
        
