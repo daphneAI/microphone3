@@ -154,6 +154,49 @@
             transition: width 0.06s ease-out;
         }
 
+        .help-alert {
+            display: none;
+            margin-top: 12px;
+            padding: 14px 18px;
+            border-radius: 12px;
+            background: rgba(239, 68, 68, 0.12);
+            border: 2px solid rgba(239, 68, 68, 0.8);
+            color: #fecaca;
+            font-size: 1.7rem;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            text-align: center;
+            box-shadow: 0 0 18px rgba(239, 68, 68, 0.35);
+        }
+
+        .help-alert.active {
+            display: block;
+        }
+
+        .camera-panel {
+            margin-top: 18px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        .camera-box {
+            background: rgba(2, 8, 23, 0.8);
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            min-height: 220px;
+            overflow: hidden;
+        }
+
+        .camera-box video,
+        .camera-box img {
+            display: block;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            background: #020817;
+        }
+
         @media (max-width: 760px) {
             .grid {
                 grid-template-columns: 1fr;
@@ -182,6 +225,17 @@
                 <div id="meterFill" class="meter-fill"></div>
             </div>
 
+            <div id="helpAlert" class="help-alert">Help</div>
+
+            <div class="camera-panel">
+                <div class="camera-box">
+                    <video id="cameraPreview" autoplay playsinline muted></video>
+                </div>
+                <div class="camera-box">
+                    <img id="capturedPhoto" alt="Captured help photo" hidden />
+                </div>
+            </div>
+
             <div class="grid">
                 <div>
                     <div class="block-label">Waveform</div>
@@ -205,6 +259,9 @@
         const statusEl = document.getElementById('status');
         const logBox = document.getElementById('logBox');
         const meterFill = document.getElementById('meterFill');
+        const helpAlert = document.getElementById('helpAlert');
+        const cameraPreview = document.getElementById('cameraPreview');
+        const capturedPhoto = document.getElementById('capturedPhoto');
         const waveCanvas = document.getElementById('waveCanvas');
         const energyCanvas = document.getElementById('energyCanvas');
         const waveCtx = waveCanvas.getContext('2d');
@@ -216,7 +273,11 @@
         let animationId = null;
         let logEntries = [];
         let isActive = false;
+        let helpTimeoutId = null;
+        let recognition = null;
+        let cameraStream = null;
         const energyHistory = [];
+        const HELP_VISIBILITY_MS = 6000;
 
         function logEvent(message) {
             const stamp = new Date().toLocaleTimeString();
@@ -228,6 +289,73 @@
         function setStatus(message, isAlert = false) {
             statusEl.textContent = message;
             statusEl.classList.toggle('alert', isAlert);
+        }
+
+        function triggerHelpAlert() {
+            helpAlert.classList.add('active');
+            if (helpTimeoutId) {
+                clearTimeout(helpTimeoutId);
+            }
+            helpTimeoutId = setTimeout(() => {
+                helpAlert.classList.remove('active');
+                capturedPhoto.hidden = true;
+            }, HELP_VISIBILITY_MS);
+
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'user' },
+                    audio: false
+                }).then((stream) => {
+                    if (cameraStream) {
+                        cameraStream.getTracks().forEach((track) => track.stop());
+                    }
+                    cameraStream = stream;
+                    cameraPreview.srcObject = stream;
+                    cameraPreview.play();
+
+                    const tempCanvas = document.createElement('canvas');
+                    tempCanvas.width = cameraPreview.videoWidth || 640;
+                    tempCanvas.height = cameraPreview.videoHeight || 480;
+                    const ctx = tempCanvas.getContext('2d');
+                    ctx.drawImage(cameraPreview, 0, 0, tempCanvas.width, tempCanvas.height);
+                    capturedPhoto.src = tempCanvas.toDataURL('image/png');
+                    capturedPhoto.hidden = false;
+                    logEvent('Help trigger detected and photo captured.');
+                }).catch((err) => {
+                    console.error(err);
+                    logEvent(`Camera capture error: ${err.message || err}`);
+                });
+            }
+        }
+
+        function startHelpListener() {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) {
+                logEvent('Speech recognition is not supported in this browser.');
+                return;
+            }
+
+            recognition = new SpeechRecognition();
+            recognition.lang = 'en-US';
+            recognition.continuous = true;
+            recognition.interimResults = false;
+
+            recognition.onresult = (event) => {
+                const transcript = Array.from(event.results)
+                    .map((result) => result[0]?.transcript || '')
+                    .join(' ')
+                    .toLowerCase();
+
+                if (transcript.includes('help')) {
+                    triggerHelpAlert();
+                }
+            };
+
+            recognition.onerror = (event) => {
+                logEvent(`Speech recognition error: ${event.error}`);
+            };
+
+            recognition.start();
         }
 
         async function listDevices() {
@@ -391,6 +519,7 @@
                 isActive = true;
                 setStatus('Listening for spikes...');
                 logEvent(`Microphone started successfully on selected input: ${deviceSelect.options[deviceSelect.selectedIndex]?.text || 'default'}`);
+                startHelpListener();
                 renderFrame();
             } catch (err) {
                 console.error(err);
@@ -434,6 +563,16 @@
             if (animationId) {
                 cancelAnimationFrame(animationId);
                 animationId = null;
+            }
+
+            if (recognition) {
+                recognition.stop();
+                recognition = null;
+            }
+
+            if (cameraStream) {
+                cameraStream.getTracks().forEach((track) => track.stop());
+                cameraStream = null;
             }
 
             if (micStream) {
