@@ -1,3 +1,12 @@
+---
+title: Microphone Spike Detector
+emoji: 🎤
+colorFrom: blue
+colorTo: green
+sdk: static
+pinned: false
+---
+
 # Microphone Spike Detector
 
 This Space runs as a browser-only static app. It does not start a Python server, so it stays within the free Hugging Face CPU quota and works with a free account.
