@@ -27,16 +27,18 @@ jobs:
     if: github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
       - name: Deploy to Hugging Face Space
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
           if [ -z "${HF_TOKEN}" ]; then echo "HF_TOKEN secret missing"; exit 1; fi
-          SPACE_USER=daphneAI
-          SPACE_NAME=space3Devices
-          git fetch --unshallow origin || git fetch --all --tags || true
-          git remote add space "https://daphneAI:${HF_TOKEN}@huggingface.co/spaces/$SPACE_USER/$SPACE_NAME" || true
-          git push --force space HEAD:main
+          git config user.email "actions@github.com"
+          git config user.name "GitHub Actions"
+          # squash to a single commit so old binary blobs in history are never pushed to the Space
+          git checkout --orphan space-deploy
+          git add -A
+          git commit -m "Deploy $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          git remote add space "https://daphneAI:${HF_TOKEN}@huggingface.co/spaces/daphneAI/space3Devices" || true
+          git push --force space space-deploy:main
 
+     
