@@ -9,7 +9,7 @@ pinned: false
 
 # Microphone Spike Detector
 
-This Space runs as a browser-only static app. It does not start a Python server, so it stays within the free Hugging Face CPU quota and works with a free account.
+This Space runs  as a browser-only static app. It does not start a Python server, so it stays within the free Hugging Face CPU quota and works with a free account.
 
 The app uses the browser microphone API to monitor audio in real time, compute a simple energy spike signal, and show live waveform/energy updates without any server-side processing.
 
