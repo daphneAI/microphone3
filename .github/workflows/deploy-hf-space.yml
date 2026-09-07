@@ -31,7 +31,7 @@ jobs:
         env:
           space3Devices: ${{ secrets.HF_TOKEN }}
         run: |
-          if [ -z "${space3Devices}" ]; then echo "space3Devices secret missing"; exit 1; fi
+        
           SPACE_USER=daphneAI
           SPACE_NAME=space3Devices
           # push to Space using token auth in URL
