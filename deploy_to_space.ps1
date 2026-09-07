@@ -11,9 +11,9 @@ if (-not $env:space3Devices) {
     Write-Error "space3Devices environment variable not set. Create a token at https://huggingface.co/settings/tokens and set it to space3Devices."
     exit 1
 }
-# Replace infoLearn/IntegrateWithInputDevicesMice with your space path if different
-$spaceUser = 'infoLearn'
-$spaceName = 'IntegrateWithInputDevicesMice'
+# Replace with your actual Space path
+$spaceUser = 'daphneAI'
+$spaceName = 'space3Devices'
 $spaceUrl = "https://huggingface.co/spaces/$spaceUser/$spaceName"
 
 # Determine current branch

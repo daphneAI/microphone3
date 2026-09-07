@@ -12,7 +12,7 @@ $env:space3Devices = 'hf_xxx'
 .\deploy_to_space.ps1
 ```
 
-This force-pushes your current branch to `main` on the Space `infoLearn/IntegrateWithInputDevicesMice`.
+This force-pushes your current branch to `main` on the Space `daphneAI/space3Devices`.
 
 CI deploy via GitHub Actions
 

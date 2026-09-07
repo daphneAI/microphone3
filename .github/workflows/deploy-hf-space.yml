@@ -32,8 +32,8 @@ jobs:
           space3Devices: ${{ secrets.space3Devices }}
         run: |
           if [ -z "${space3Devices}" ]; then echo "space3Devices secret missing"; exit 1; fi
-          SPACE_USER=infoLearn
-          SPACE_NAME=IntegrateWithInputDevicesMice
+          SPACE_USER=daphneAI
+          SPACE_NAME=space3Devices
           # push to Space using token auth in URL
           git remote add hf "https://huggingface.co/spaces/$SPACE_USER/$SPACE_NAME" || true
           git push "https://${space3Devices}@huggingface.co/spaces/$SPACE_USER/$SPACE_NAME" HEAD:main --force
