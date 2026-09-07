@@ -7,7 +7,10 @@ if (-not $env:HF_TOKEN) {
     Write-Error "HF_TOKEN environment variable not set. Create a token at https://huggingface.co/settings/tokens and set it to HF_TOKEN."
     exit 1
 }
-
+if (-not $env:gitIntegrateWithDevice) {
+     Write-Error "gitIntegrateWithDevice environment variable not set. Create a token at https://huggingface.co/settings/tokens and set it to gitIntegrateWithDevice."
+     exit 1
+}
 # Replace infoLearn/IntegrateWithInputDevicesMice with your space path if different
 $spaceUser = 'infoLearn'
 $spaceName = 'IntegrateWithInputDevicesMice'
@@ -18,7 +21,7 @@ $branch = git rev-parse --abbrev-ref HEAD
 Write-Host "Pushing branch $branch to $spaceUrl ..."
 
 # Push using token auth in URL. Do NOT hardcode token.
-$pushUrl = "https://$($env:HF_TOKEN)@huggingface.co/spaces/$spaceUser/$spaceName"
+$pushUrl = "https://$($env:gitIntegrateWithDevice)@huggingface.co/spaces/$spaceUser/$spaceName"
 # Force push current HEAD to main on the Space
 git push $pushUrl HEAD:main --force
 
